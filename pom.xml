@@ -14,6 +14,11 @@
         <junit.version>5.8.2</junit.version>
     </properties>
 
+    <parent>
+        <artifactId>javafx</artifactId>
+        <groupId>org.openjfx</groupId>
+        <version>18.0.2</version>
+    </parent>
     <dependencies>
         <dependency>
             <groupId>org.openjfx</groupId>
@@ -37,6 +42,12 @@
             <artifactId>junit-jupiter-engine</artifactId>
             <version>${junit.version}</version>
             <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.openjfx</groupId>
+            <artifactId>javafx-swing</artifactId>
+            <version>18.0.2</version>
+            <classifier>${javafx.platform}</classifier>
         </dependency>
     </dependencies>
 
