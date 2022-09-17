@@ -5,7 +5,10 @@ import javafx.event.ActionEvent;
 import javafx.event.EventHandler;
 import javafx.fxml.FXMLLoader;
 import javafx.geometry.Insets;
+import javafx.geometry.Orientation;
+import javafx.geometry.Pos;
 import javafx.scene.Scene;
+import javafx.scene.canvas.Canvas;
 import javafx.scene.control.*;
 import javafx.scene.image.WritableImage;
 import javafx.scene.layout.*;
@@ -21,6 +24,7 @@ import javafx.stage.Stage;
 import javafx.stage.FileChooser;
 import javafx.stage.FileChooser.ExtensionFilter;
 
+import java.util.Stack;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.awt.image.RenderedImage;
@@ -48,14 +52,27 @@ public class Main extends Application {
         stage2 = stage;
         pane = new BorderPane();
 
-        // Creates border pane and menu bar
+        // Creates border pane, menu bar, help bar, scroll bars and color chooser
         display_menu menu = new display_menu();
-        pane.setTop(menu.get_vbox());
+        help_bar help = new help_bar();
+        Scrolls scrolls = new Scrolls(stage2);
+        color_chooser color_box = new color_chooser();
+        draw pen = new draw(stage2, menu.get_canvas());
+        pen.button_box(menu.get_canvas());
+
+        // Puts everything together on the border pane
+        //pane.setTop(color_box.get_HBox());
+        pane.setTop(pen.get_HBox());
         pane.setCenter(imgView);
+        pane.setRight(scrolls.get_vert_scroll());
+        pane.setBottom(scrolls.get_horz_scroll());
+        
         stage.setTitle("Paint");
         Scene scene = new Scene(pane, 595, 355, Color.BEIGE);
         stage.setScene(scene);
         stage.show();
+
+
 
     }
 
