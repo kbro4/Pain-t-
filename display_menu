@@ -4,9 +4,8 @@ import javafx.embed.swing.SwingFXUtils;
 import javafx.event.ActionEvent;
 import javafx.event.EventHandler;
 import javafx.geometry.Insets;
-import javafx.scene.Group;
-import javafx.scene.Scene;
-import javafx.scene.SnapshotParameters;
+import javafx.scene.*;
+import javafx.scene.canvas.Canvas;
 import javafx.scene.control.Button;
 import javafx.scene.control.MenuBar;
 import javafx.scene.control.Menu;
@@ -23,12 +22,14 @@ import javafx.stage.Stage;
 import javax.imageio.ImageIO;
 import java.awt.image.RenderedImage;
 import java.io.*;
+import java.util.Collection;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
 
 public class display_menu {
-    private MenuBar menubar;
+    protected MenuBar menubar;
+    private static Canvas canvas1;
     private Menu file;
     private MenuItem op_item;
     private MenuItem s_item;
@@ -49,6 +50,10 @@ public class display_menu {
         menubar.getMenus().add(file);
         vbox = new VBox(menubar);
         imageview = new ImageView();
+
+        // Creates canvas
+        canvas1 = new Canvas(400.0, 400.0);
+        Main.get_pane().setCenter(canvas1);
 
         //File bar options
         // Opens image
@@ -74,6 +79,10 @@ public class display_menu {
         return this.imageview;
     }
 
+    public Canvas get_canvas(){
+        return this.canvas1;
+    }
+
     public static void open_image() {
         // Creates file chooser
         Stage stage = new Stage();
@@ -86,6 +95,9 @@ public class display_menu {
         imageview = new ImageView(image);
         Main.get_pane().setCenter(imageview);
 
+        // Changes canvas size
+        canvas1.setHeight(image.getHeight());
+        canvas1.setWidth(image.getWidth());
     }
 
     public static void save(Stage stage, File file, ImageView imgView) {
@@ -122,6 +134,5 @@ public class display_menu {
             }
         }
     }
-
 
 }
