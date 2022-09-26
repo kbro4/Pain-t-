@@ -24,6 +24,7 @@ import javafx.stage.Stage;
 import javafx.stage.FileChooser;
 import javafx.stage.FileChooser.ExtensionFilter;
 
+import java.util.Optional;
 import java.util.Stack;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -45,6 +46,7 @@ public class Main extends Application {
 
     private static BorderPane pane;
     private static Stage stage2;
+    private Boolean updated;
     @Override
     public void start(Stage stage) throws IOException {
         // Launches starting interface
@@ -55,25 +57,71 @@ public class Main extends Application {
         // Creates border pane, menu bar, help bar, scroll bars and color chooser
         display_menu menu = new display_menu();
         help_bar help = new help_bar();
-        Scrolls scrolls = new Scrolls(stage2);
-        color_chooser color_box = new color_chooser();
-        draw pen = new draw(stage2, menu.get_canvas());
-        pen.button_box(menu.get_canvas());
+        ScrollPane scroll = new ScrollPane();
+        scroll.setContent(menu.get_canvas());
+        scroll.setPannable(true);
+        draw pen1 = new draw(menu.get_canvas());
 
         // Puts everything together on the border pane
-        //pane.setTop(color_box.get_HBox());
-        pane.setTop(pen.get_HBox());
-        pane.setCenter(imgView);
-        pane.setRight(scrolls.get_vert_scroll());
-        pane.setBottom(scrolls.get_horz_scroll());
-        
+        pane.setTop(pen1.get_HBox());
+        pane.setCenter(scroll);
+
+        // Sets scene
         stage.setTitle("Paint");
-        Scene scene = new Scene(pane, 595, 355, Color.BEIGE);
+        Scene scene = new Scene(pane, 595, 355, Color.AQUA);
         stage.setScene(scene);
         stage.show();
 
+        // Sets default pen tool
+        pane.setCenter(pen1.draw_tool(menu.get_canvas()));
+
+        // Processes exit request
+        stage.setOnCloseRequest(e -> {
+            updated = pen1.check_updated();
+            e.consume();
+            aware_save(pen1);
+        });
+
+    }
 
 
+    public void aware_save(draw pen1){
+        // Checks to see if the canvas has been updated
+        if (updated) {
+            // Creates alert box
+            Alert alert = new Alert(Alert.AlertType.CONFIRMATION);
+            alert.setTitle("Unsaved changes");
+            alert.setContentText("Would you like to save your changes?");
+
+            // Creates save, discard, cancel options
+            ButtonType save_opt = new ButtonType("Save");
+            ButtonType discard_opt = new ButtonType("Don't Save");
+            ButtonType cancel_opt = new ButtonType("Cancel", ButtonBar.ButtonData.CANCEL_CLOSE);
+            alert.getButtonTypes().setAll(save_opt, discard_opt, cancel_opt);
+
+            Optional<ButtonType> result = alert.showAndWait();
+            if (result.get() == save_opt) {
+                // User chose save
+                // Checks for save versus save as
+                if (pen1.get_file() != null){
+                    pen1.save(stage2, pen1.get_file(), pen1.get_imageview(), pen1.get_canvas());
+                }
+                else {
+                    pen1.save_as(stage2, pen1.get_file(), pen1.get_imageview(), pen1.get_canvas());
+                }
+                stage2.close();
+
+            } else if (result.get() == discard_opt) {
+                // User chose don't save
+                stage2.close();
+            } else {
+                // User chose cancel or exited the alert
+                alert.close();
+            }
+        }
+        else {
+            stage2.close();
+        }
     }
 
     public static BorderPane get_pane(){
