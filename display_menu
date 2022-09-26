@@ -6,16 +6,17 @@ import javafx.event.EventHandler;
 import javafx.geometry.Insets;
 import javafx.scene.*;
 import javafx.scene.canvas.Canvas;
-import javafx.scene.control.Button;
-import javafx.scene.control.MenuBar;
-import javafx.scene.control.Menu;
-import javafx.scene.control.MenuItem;
+import javafx.scene.canvas.GraphicsContext;
+import javafx.scene.control.*;
 import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
 import javafx.scene.image.WritableImage;
-import javafx.scene.layout.GridPane;
-import javafx.scene.layout.Pane;
-import javafx.scene.layout.VBox;
+import javafx.scene.input.KeyCode;
+import javafx.scene.input.KeyCodeCombination;
+import javafx.scene.input.KeyCombination;
+import javafx.scene.layout.*;
+import javafx.scene.paint.Color;
+import javafx.scene.shape.Rectangle;
 import javafx.stage.FileChooser;
 import javafx.stage.Stage;
 
@@ -25,19 +26,40 @@ import java.io.*;
 import java.util.Collection;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import java.util.HashMap;
 
 
 public class display_menu {
     protected MenuBar menubar;
-    private static Canvas canvas1;
+    public static Canvas canvas1;
     private Menu file;
     private MenuItem op_item;
     private MenuItem s_item;
     private MenuItem sa_item;
+    private MenuItem close_item;
     private VBox vbox;
     private static ImageView imageview;
     private File file2;
+    private static draw pen;
+    public static ScrollPane scroll;
+    private File file1;
+    public Boolean saved;
+    private Boolean image_loaded;
+    private int tabcounter = 0;
+    private TabPane tabpane;
+    private Tab tab1;
+    private BorderPane innerpane;
+    private Tab current_tab;
+    private HashMap tab_files;
+    String tab_file_path;
+
     public display_menu(){
+
+        ScrollPane scroll = new ScrollPane();
+        scroll.setPannable(true);
+        image_loaded = false;
+        tab_files = new HashMap<Tab, File>();
+
         // Creates Menu bar
         menubar = new MenuBar();
 
@@ -46,29 +68,47 @@ public class display_menu {
         op_item = new MenuItem("Open");
         s_item = new MenuItem("Save");
         sa_item = new MenuItem("Save as");
-        file.getItems().addAll(op_item, s_item, sa_item);
+        close_item = new MenuItem("Close");
+        file.getItems().addAll(op_item, s_item, sa_item, close_item);
         menubar.getMenus().add(file);
         vbox = new VBox(menubar);
         imageview = new ImageView();
 
         // Creates canvas
-        canvas1 = new Canvas(400.0, 400.0);
-        Main.get_pane().setCenter(canvas1);
+        canvas1 = new Canvas(1100.0, 700.0);
+        scroll.setContent(canvas1);
+        Main.get_pane().setCenter(scroll);
 
         //File bar options
         // Opens image
         op_item.setOnAction(o->{
-            open_image();
-
+            // Checks to see if there is already an image loaded
+            if (image_loaded == true){
+                tab_open(canvas1);
+            }
+            else {
+                open_image();
+            }
         });
         // Save
         s_item.setOnAction(p->{
-            save(Main.get_stage(), file2, imageview);
+            save(Main.get_stage(), file2, imageview, canvas1);
+            saved = true;
         });
         //Save as
         sa_item.setOnAction(l->{
-            save_as(Main.get_stage(), file2, imageview);
+            save_as(Main.get_stage(), file2, imageview, canvas1);
+            saved = true;
         });
+
+        // Close
+        close_item.setOnAction(r->{
+            close(Main.get_stage());
+        });
+
+        op_item.setAccelerator(new KeyCodeCombination(KeyCode.O, KeyCombination.CONTROL_DOWN));
+        s_item.setAccelerator(new KeyCodeCombination(KeyCode.S, KeyCombination.CONTROL_DOWN));
+        close_item.setAccelerator(new KeyCodeCombination(KeyCode.E, KeyCombination.CONTROL_DOWN));
     }
 
     public VBox get_vbox(){
@@ -83,31 +123,155 @@ public class display_menu {
         return this.canvas1;
     }
 
-    public static void open_image() {
+    public Canvas get_canvas(Canvas canvas2){
+        return canvas2;
+    }
+
+    public void alter_canvas_width(double new_width){
+        canvas1.setWidth(new_width);
+    }
+
+    public void alter_canvas_height(double new_height){
+        canvas1.setHeight(new_height);
+    }
+
+    public void open_image() {
         // Creates file chooser
         Stage stage = new Stage();
         stage.setTitle("Open");
         final FileChooser fileChooser = new FileChooser();
-        File file1 = fileChooser.showOpenDialog(stage);
+        file1 = fileChooser.showOpenDialog(stage);
 
         // Loads image
         Image image = new Image(file1.toURI().toString());
         imageview = new ImageView(image);
         Main.get_pane().setCenter(imageview);
 
-        // Changes canvas size
+        // Sets canvas w/image
         canvas1.setHeight(image.getHeight());
         canvas1.setWidth(image.getWidth());
+        setCanvas(canvas1, image);
+
+        // Sets scrollpane
+        scroll = new ScrollPane();
+        scroll.setContent(canvas1);
+        Main.get_pane().setCenter(scroll);
+
+        // Sets the file
+        set_file(file1);
+
+        // Sets that there has been an image loaded
+        image_loaded = true;
     }
 
-    public static void save(Stage stage, File file, ImageView imgView) {
-        //FileChooser filechooser = new FileChooser();
-        //file = filechooser.showSaveDialog(stage);
+    public void tab_open(Canvas canvas){
+        if (tabcounter == 0){
+            // Creates first tab
+            tabpane = new TabPane();
+            tab1 = new Tab();
+            tab1.setText("Tab 1");
+            scroll.setContent(canvas);
+            tab1.setContent(scroll);
+            tabpane.getTabs().add(tab1);
+            tabcounter = tabcounter + 2;
+
+            // Sets the file
+            set_file(file1);
+
+            // Saves the tab, file combination
+            tab_files.put(tab1, file1);
+
+            // Creates new borderpane for tabpane
+            BorderPane innerpane = new BorderPane();
+            innerpane.setTop(tabpane);
+        }
+
+        // Creates new tab
+        Tab new_tab = new Tab();
+        new_tab.setText("Tab " + tabcounter);
+
+        // Creates new canvas
+        Canvas new_canvas = new Canvas();
+
+        // Creates file chooser
+        Stage stage = new Stage();
+        stage.setTitle("Open");
+        final FileChooser fileChooser = new FileChooser();
+        File new_file;
+        new_file = fileChooser.showOpenDialog(stage);
+
+        // Loads image
+        Image image = new Image(new_file.toURI().toString());
+        imageview = new ImageView(image);
+
+        // Sets canvas w/image
+        new_canvas.setHeight(image.getHeight());
+        new_canvas.setWidth(image.getWidth());
+        setCanvas(new_canvas, image);
+
+        // Sets scrollpane
+        scroll = new ScrollPane();
+        scroll.setContent(get_canvas(new_canvas));
+
+        // Puts new canvas in new tab
+        new_tab.setContent(scroll);
+
+        // Increments tab counter
+        tabcounter = tabcounter + 1;
+
+        // Sets the file
+        set_file(new_file);
+        tab_files.put(new_tab, new_file);
+
+        // Adds new tab to tabpane
+        get_tabpane().getTabs().addAll(new_tab);
+
+        // Creates new borderpane to put in the main one
+        BorderPane innerpane = new BorderPane();
+        innerpane.setTop(tabpane);
+
+        // Puts new Borderpane in old one
+        Main.get_pane().setCenter(innerpane);
+    }
+
+    public File get_tab_file(){
+        current_tab = tabpane.getSelectionModel().getSelectedItem();
+        System.out.println(tab_files.get(current_tab));
+        //tab_file_path = tab_files.get(current_tab).
+        //tab_file_path = tab_files.get(current_tab).toString();
+        //file1 = tab_files.get(current_tab);
+        set_file(file1);
+        return get_file();
+    }
+
+    public TabPane get_tabpane(){
+        return tabpane;
+    }
+
+    public void set_tabpane(TabPane new_tabpane){
+        tabpane = new_tabpane;
+    }
+
+    public ScrollPane get_scrolls(){
+        return this.scroll;
+    }
+
+    public static void setCanvas(Canvas canvas1, Image img){
+        // Sets image on canvas
+        GraphicsContext gc = canvas1.getGraphicsContext2D();
+        gc.drawImage(img, 0, 0,canvas1.getWidth(), canvas1.getHeight());
+    }
+
+    public void save(Stage stage, File file, ImageView imgView, Canvas canvas) {
+        if (tabcounter != 0){
+            get_tab_file();
+        }
         SnapshotParameters snap = new SnapshotParameters();
+        file = get_file();
         if (file != null){
             try {
                 // Saves image
-                WritableImage image = imgView.snapshot(snap, null);
+                WritableImage image = canvas.snapshot(snap, null);
                 RenderedImage renderedImage = SwingFXUtils.fromFXImage(image, null);
                 ImageIO.write(renderedImage, "png", file);
             }
@@ -117,15 +281,23 @@ public class display_menu {
         }
     }
 
-    public static void save_as(Stage stage, File file, ImageView imgView) {
+    public void save_as(Stage stage, File file, ImageView imgView, Canvas canvas) {
         // Creates file chooser
         FileChooser filechooser = new FileChooser();
+        FileChooser.ExtensionFilter extFilter1 = new FileChooser.ExtensionFilter(
+                "image files (*.png)", "*.png");
+        FileChooser.ExtensionFilter extFilter2 = new FileChooser.ExtensionFilter(
+                "image files (*.jpg)", "*.jpg");
+        FileChooser.ExtensionFilter extFilter3 = new FileChooser.ExtensionFilter(
+                "image files (*.bmp)", "*.bmp");
+        filechooser.getExtensionFilters().addAll(extFilter1, extFilter2, extFilter3);
+        filechooser.setSelectedExtensionFilter(extFilter1);
         file = filechooser.showSaveDialog(stage);
         SnapshotParameters snap = new SnapshotParameters();
         if (file != null){
             try {
                 // Saves image
-                WritableImage image = imgView.snapshot(snap, null);
+                WritableImage image = canvas.snapshot(snap, null);
                 RenderedImage renderedImage = SwingFXUtils.fromFXImage(image, null);
                 ImageIO.write(renderedImage, "png", file);
             }
@@ -133,6 +305,21 @@ public class display_menu {
                 Logger.getLogger(Main.class.getName()).log(Level.SEVERE,null, exception);
             }
         }
+
+        set_file(file);
+    }
+
+    public void set_file(File new_file){
+        file1 = new_file;
+    }
+
+    public File get_file(){
+        return file1;
+    }
+
+    public static void close(Stage stage2){
+        // Close function
+        stage2.close();
     }
 
 }
