@@ -54,7 +54,7 @@ public class Main extends Application {
         stage2 = stage;
         pane = new BorderPane();
 
-        // Creates border pane, menu bar, help bar, scroll bars and color chooser
+        // Creates border pane, menu bar, help bar, and draw bar
         display_menu menu = new display_menu();
         help_bar help = new help_bar();
         ScrollPane scroll = new ScrollPane();
@@ -68,7 +68,7 @@ public class Main extends Application {
 
         // Sets scene
         stage.setTitle("Paint");
-        Scene scene = new Scene(pane, 595, 355, Color.AQUA);
+        Scene scene = new Scene(pane, 595, 355, Color.WHITE);
         stage.setScene(scene);
         stage.show();
 
