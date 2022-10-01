@@ -7,9 +7,10 @@ import javafx.event.Event;
 import javafx.event.EventHandler;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
-import javafx.scene.Group;
+import javafx.geometry.Rectangle2D;
 import javafx.scene.Node;
 import javafx.scene.Scene;
+import javafx.scene.SnapshotParameters;
 import javafx.scene.canvas.Canvas;
 import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.control.*;
@@ -19,20 +20,23 @@ import javafx.scene.control.ScrollPane;
 import javafx.scene.control.TextField;
 import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
-import javafx.scene.input.DragEvent;
+import javafx.scene.image.WritableImage;
 import javafx.scene.input.MouseEvent;
 import javafx.scene.layout.*;
 import javafx.scene.paint.Color;
 import javafx.scene.robot.Robot;
-import javafx.scene.shape.Ellipse;
 import javafx.scene.text.Font;
 import javafx.scene.text.Text;
 import javafx.stage.Stage;
 import javafx.util.Pair;
 
+import java.util.Stack;
 import java.awt.*;
 import java.io.File;
+import java.util.Optional;
+import java.util.ArrayList;
 
+import static java.awt.Color.WHITE;
 import static java.awt.SystemColor.menu;
 
 public class draw extends help_bar{
@@ -45,27 +49,43 @@ public class draw extends help_bar{
     private Pair<Double, Double> initialTouch;
     private ColorPicker colorPicker;
     private boolean updated;
-
     private ToggleButton selected;
-
-    private Ellipse ellipse;
+    private int polygon_sides;
+    private ArrayList<Double> xPoints;
+    private ArrayList<Double> yPoints;
+    private String in_use;
+    private Stack<Image> undo;
+    private Stack<Image> redo;
+    private boolean opened_image;
+    private Image bottom_im;
+    private int bottom_im_added;
+    private boolean doneyet;
+    double x1;
+    double x2;
+    double y1;
+    double y2;
 
     public draw(Canvas canvas){
         menubar = super.menubar;
         updated = false;
         saved = true;
+        bottom_im_added = 0;
         final GraphicsContext graphicsContext = canvas.getGraphicsContext2D();
 
-        /*
-        // Creates reset button
-        final Button resetButton = new Button("Reset");
-        resetButton.setOnAction(actionEvent -> {
-            graphicsContext.clearRect(1, 1, graphicsContext.getCanvas().getWidth() - 2,
-                    graphicsContext.getCanvas().getHeight() - 2);
-        });
-        resetButton.setTranslateX(10);
+        // Puts initial canvas at bottom layer of stack
+        undo = new Stack<>();
+        redo = new Stack<>();
+        undo.push(draw_image(canvas));
 
-         */
+        // Draws initial canvas
+        initDraw(graphicsContext, 0, 0);
+
+        // Creates clear canvas button
+        final Button resetButton = new Button("Clear Canvas");
+        resetButton.setOnAction(actionEvent -> {
+            clear_canvas(canvas);
+        });
+        resetButton.setTranslateX(5);
 
         //Creates color picker
         colorPicker = new ColorPicker();
@@ -139,9 +159,11 @@ public class draw extends help_bar{
         freeIcon.setFitHeight(20);
         freeB.setGraphic(freeIcon);
         freeB.setOnAction(z->{
+            z.consume();
             selected.setSelected(false);
             freeB.setSelected(true);
             selected = freeB;
+            in_use = "freeB";
             draw_tool(canvas);
         });
 
@@ -154,9 +176,11 @@ public class draw extends help_bar{
         lineIcon.setFitHeight(20);
         lineB.setGraphic(lineIcon);
         lineB.setOnAction(a->{
+            a.consume();
             selected.setSelected(false);
             lineB.setSelected(true);
             selected = lineB;
+            in_use = "lineB";
             draw_line(canvas);
         });
 
@@ -169,9 +193,11 @@ public class draw extends help_bar{
         squareIcon.setFitHeight(20);
         squareB.setGraphic(squareIcon);
         squareB.setOnAction(b->{
+            b.consume();
             selected.setSelected(false);
             squareB.setSelected(true);
             selected = squareB;
+            in_use = "squareB";
             draw_square(canvas);
         });
 
@@ -184,9 +210,11 @@ public class draw extends help_bar{
         rectangleIcon.setFitHeight(20);
         rectangleB.setGraphic(rectangleIcon);
         rectangleB.setOnAction(c->{
+            c.consume();
             selected.setSelected(false);
             rectangleB.setSelected(true);
             selected = rectangleB;
+            in_use = "rectangleB";
             draw_rectangle(canvas);
         });
 
@@ -199,9 +227,11 @@ public class draw extends help_bar{
         circleIcon.setFitHeight(20);
         circleB.setGraphic(circleIcon);
         circleB.setOnAction(d->{
+            d.consume();
             selected.setSelected(false);
             circleB.setSelected(true);
             selected = circleB;
+            in_use = "circleB";
             draw_circle(canvas);
         });
 
@@ -214,9 +244,11 @@ public class draw extends help_bar{
         ellipseIcon.setFitHeight(20);
         ellipseB.setGraphic(ellipseIcon);
         ellipseB.setOnAction(e->{
+            e.consume();
             selected.setSelected(false);
             ellipseB.setSelected(true);
             selected = ellipseB;
+            in_use = "ellipseB";
             draw_ellipse(canvas);
         });
 
@@ -229,12 +261,15 @@ public class draw extends help_bar{
         dashedIcon.setFitHeight(20);
         dashedB.setGraphic(dashedIcon);
         dashedB.setOnAction(f->{
+            f.consume();
             selected.setSelected(false);
             dashedB.setSelected(true);
             selected = dashedB;
+            in_use = "dashedB";
             draw_dashed_line(canvas);
         });
 
+        // Color grabber button
         final ToggleButton colorB = new ToggleButton();
         File file7 = new File("C:\\Users\\kjbro\\Downloads\\color_icon.png");
         Image colorImage = new Image(file7.toURI().toString());
@@ -243,30 +278,568 @@ public class draw extends help_bar{
         colorIcon.setFitHeight(20);
         colorB.setGraphic(colorIcon);
         colorB.setOnAction(g->{
+            g.consume();
             selected.setSelected(false);
             colorB.setSelected(true);
             selected = colorB;
+            in_use = "colorB";
             color_grabber(canvas, text);
         });
 
+        // Rounded rectangle button
+        final ToggleButton roundedB = new ToggleButton();
+        File file8 = new File("C:\\Users\\kjbro\\Downloads\\rounded_icon.png");
+        Image roundedImage = new Image(file8.toURI().toString());
+        ImageView roundedIcon = new ImageView(roundedImage);
+        roundedIcon.setFitWidth(20);
+        roundedIcon.setFitHeight(20);
+        roundedB.setGraphic(roundedIcon);
+        roundedB.setOnAction(h->{
+            h.consume();
+            selected.setSelected(false);
+            roundedB.setSelected(true);
+            selected = roundedB;
+            in_use = "roundedB";
+            draw_rounded_rect(canvas);
+        });
+
+        // Eraser button
+        final ToggleButton eraserB = new ToggleButton();
+        File file9 = new File("C:\\Users\\kjbro\\Downloads\\eraser_icon.png");
+        Image eraserImage = new Image(file9.toURI().toString());
+        ImageView eraserIcon = new ImageView(eraserImage);
+        eraserIcon.setFitWidth(20);
+        eraserIcon.setFitHeight(20);
+        eraserB.setGraphic(eraserIcon);
+        eraserB.setOnAction(i->{
+            i.consume();
+            selected.setSelected(false);
+            eraserB.setSelected(true);
+            selected = eraserB;
+            in_use = "eraserB";
+            eraser(canvas);
+        });
+
+        final ToggleButton polygonB = new ToggleButton("Polygon");
+        polygonB.setOnAction(j->{
+            j.consume();
+            selected.setSelected(false);
+            polygonB.setSelected(true);
+            selected = polygonB;
+            in_use = "polygonB";
+            polygon_sides_prompt(canvas);
+        });
+
+        final Button undoB = new Button("Undo");
+        undoB.setOnAction(k ->{
+            //k.consume();
+            undo();
+        });
+        undoB.setTranslateX(5);
+
+        final Button redoB = new Button("Redo");
+        redoB.setOnAction(l ->{
+            //l.consume();
+            redo();
+        });
+        redoB.setTranslateX(5);
+
+        final ToggleButton copyB = new ToggleButton("Copy part");
+        copyB.setOnAction(m ->{
+            m.consume();
+            selected.setSelected(false);
+            copyB.setSelected(true);
+            selected = copyB;
+            in_use = "copyB";
+            image_copy(undo.peek());
+        });
+
         // Adds options to toolbar
-        toolbar.getItems().addAll(freeB, lineB, squareB, rectangleB, circleB, ellipseB, dashedB, colorB);
+        toolbar.getItems().addAll(freeB, lineB, squareB, rectangleB, roundedB, circleB, ellipseB, dashedB, eraserB, colorB, polygonB, copyB);
 
         // Set buttons to unselected
         freeB.setSelected(true);
-        lineB.setSelected(false);
-        squareB.setSelected(false);
-        rectangleB.setSelected(false);
-        circleB.setSelected(false);
-        ellipseB.setSelected(false);
-        dashedB.setSelected(false);
-        colorB.setSelected(false);
-
         selected = freeB;
+        in_use = "freeB";
 
         // Creates menubar box
         button_box = new HBox(menubar);
-        button_box.getChildren().addAll(colorPicker, sizeChooser, resize, toolbar);
+        button_box.getChildren().addAll(resetButton, undoB, redoB, colorPicker, sizeChooser, resize, toolbar);
+    }
+
+    public void image_copy(Image image){
+        Canvas canvas = get_canvas();
+        // Gets area user wants to copy
+        doneyet = false;
+        if (doneyet == false){
+            // Gets current canvas, images, scrolls
+            root = new StackPane();
+            ScrollPane scrolls = new ScrollPane();
+            canvas = get_canvas();
+            scrolls.setContent(canvas);
+            root.getChildren().add(scrolls);
+            Main.get_pane().setCenter(root);
+
+            canvas.addEventHandler(MouseEvent.MOUSE_PRESSED, (MouseEvent event) -> {
+                // Gets selected starting points
+                x1 = event.getX();
+                y1 = event.getY();
+            });
+            canvas.addEventHandler(MouseEvent.MOUSE_DRAGGED, (MouseEvent event) -> {
+            });
+            canvas.addEventHandler(MouseEvent.MOUSE_RELEASED, (MouseEvent event) -> {
+                // Gets selected ending points
+                x2 = event.getX();
+                y2 = event.getY();
+                doneyet = true;
+                select_rect(image);
+            });
+        }
+    }
+
+    public void select_rect(Image image1){
+        // Creates an imageview of the selected area
+        ImageView imageview1 = new ImageView();
+        imageview1.setImage(image1);
+        imageview1.setPreserveRatio(true);
+        imageview1.setSmooth(true);
+
+        Rectangle2D rectangle = new Rectangle2D(x1, y1, x2 - x1, y2 - y1);
+        imageview1.setViewport(rectangle);
+        paste_rect(imageview1, rectangle);
+    }
+
+    public void paste_rect(ImageView imageview1, Rectangle2D rectangle) {
+        // Converts imageview to image
+        Image image = draw_image(imageview1);
+        ScrollPane scrolls = new ScrollPane();
+        Canvas canvas = get_canvas();
+        doneyet = false;
+        if (!doneyet) {
+            canvas.setOnMousePressed((MouseEvent event) -> {
+                double x = event.getX();
+                double y = event.getY();
+                //scrolls.setContent(get_canvas());
+                //root.getChildren().addAll(scrolls);
+                draw_image(image, canvas, x, y, rectangle);
+                scrolls.setContent(get_canvas());
+                root.getChildren().addAll(scrolls);
+                Main.get_pane().setCenter(root);
+                doneyet = true;
+            });
+        }
+    }
+
+    public void set_bottom_layer(){
+        // Sets image at bottom of undo stack
+        bottom_im = get_image();
+        undo.push(bottom_im);
+        bottom_im_added = bottom_im_added + 1;
+    }
+
+    public Image draw_image(Canvas canvas){
+        // Gets image after change
+        /*
+        SnapshotParameters snap = new SnapshotParameters();
+        WritableImage image = canvas.snapshot(snap, null);
+        System.out.println(undo);
+        return image;
+         */
+
+        WritableImage image = new WritableImage((int) canvas.getWidth(), (int) canvas.getHeight());
+        canvas.snapshot(null, image);
+        return image;
+    }
+
+    public Image draw_image(ImageView imageview1){
+        // Draws image out of imageview
+        SnapshotParameters snap = new SnapshotParameters();
+        WritableImage image = imageview1.snapshot(snap, null);
+        return image;
+    }
+
+    public void draw_image(Image im, Canvas canvas, double x, double y, Rectangle2D rectangle){
+        // Draws copied image
+        GraphicsContext graphicsContext = canvas.getGraphicsContext2D();
+        graphicsContext.drawImage(im, x, y, rectangle.getWidth(), rectangle.getHeight());
+        set_canvas(canvas);
+    }
+
+    public void draw_image(Image last_im){
+        // Redraws last image
+        GraphicsContext graphicsContext = get_canvas().getGraphicsContext2D();
+        double x = get_canvas().getWidth();
+        double y = get_canvas().getHeight();
+        undo_clear_canvas(get_canvas());
+        setCanvas(get_canvas(), get_image());
+        graphicsContext.drawImage(last_im, 0, 0, x, y);
+    }
+
+    public void undo(){
+        // Removes last image
+        Image last_im = undo.pop();
+        // Checks to see if image just removed was the bottom layer
+        if (!undo.isEmpty()){
+            // Puts old image in redo
+            redo.push(last_im);
+            // Gets back last image
+            draw_image(undo.peek());
+        }
+        else {
+            draw_image(last_im);
+            undo.push(last_im);
+        }
+    }
+
+    public void redo(){
+        // Makes sure something is in redo
+        if (!redo.isEmpty()){
+            Image last_im = redo.pop();
+            undo.push(last_im);
+            draw_image(last_im);
+        }
+    }
+
+    public void update_stacks(){
+        undo.push(draw_image(get_canvas()));
+        redo.clear();
+    }
+
+    public String get_in_use(){
+        return in_use;
+    }
+
+    public void master_handle(Canvas canvas, String tool, Text text){
+        GraphicsContext graphicsContext = canvas.getGraphicsContext2D();
+
+        // Master handler for all draw/shapes tools
+        canvas.addEventHandler(MouseEvent.MOUSE_PRESSED, (MouseEvent event) ->{
+            switch (tool){
+                case ("Pen"):
+                    if (get_in_use() == "freeB"){
+                        graphicsContext.setLineWidth(linewidth);
+                        graphicsContext.beginPath();
+                        graphicsContext.moveTo(event.getX(), event.getY());
+                        graphicsContext.stroke();
+                    }
+                case ("Line"):
+                    if (get_in_use() == "lineB"){
+                        graphicsContext.setLineWidth(linewidth);
+                        System.out.println("Check1");
+                        initialTouch = new Pair<>(event.getX(), event.getY());
+                    }
+                case ("Square"):
+                    if (get_in_use() == "squareB"){
+                        graphicsContext.setLineWidth(linewidth);
+                        initialTouch = new Pair<>(event.getX(), event.getY());
+                    }
+                case ("Rectangle"):
+                    if (get_in_use() == "rectangleB"){
+                        graphicsContext.setLineWidth(linewidth);
+                        initialTouch = new Pair<>(event.getX(), event.getY());
+                    }
+                case ("Circle"):
+                    if (get_in_use() == "circleB"){
+                        graphicsContext.setLineWidth(linewidth);
+                        initialTouch = new Pair<>(event.getX(), event.getY());
+                    }
+                case ("Ellipse"):
+                    if (get_in_use() == "ellipseB"){
+                        graphicsContext.setLineWidth(linewidth);
+                        initialTouch = new Pair<>(event.getX(), event.getY());
+                    }
+                case ("Rounded Rectangle"):
+                    if (get_in_use() == "roundedB"){
+                        graphicsContext.setLineWidth(linewidth);
+                        initialTouch = new Pair<>(event.getX(), event.getY());
+                    }
+                case ("Dashed Line"):
+                    if (get_in_use() == "dashedB"){
+                        graphicsContext.setLineWidth(linewidth);
+                        initialTouch = new Pair<>(event.getX(), event.getY());
+                    }
+                case ("Eraser"):
+                    if (get_in_use() == "eraserB"){
+                        graphicsContext.setFill(Color.WHITE);
+                        graphicsContext.setLineWidth(linewidth);
+                        graphicsContext.beginPath();
+                        graphicsContext.moveTo(event.getX(), event.getY());
+                        graphicsContext.setStroke(Color.WHITE);
+                        graphicsContext.stroke();
+                        graphicsContext.fill();
+                    }
+                case ("Color Grabber"):
+                    if (get_in_use() == "colorB"){
+                        int xValue = MouseInfo.getPointerInfo().getLocation().x;
+                        int yValue = MouseInfo.getPointerInfo().getLocation().y;
+                        Robot robot = new Robot();
+                        Color color = robot.getPixelColor(xValue, yValue);
+                        colorPicker.setValue(color);
+                        text.setFill(colorPicker.getValue());
+                    }
+                case ("Polygon"):
+                    if (get_in_use() == "polygonB"){
+                        System.out.println("Stuff");
+                    }
+            }
+        });
+
+        canvas.addEventHandler(MouseEvent.MOUSE_DRAGGED, (MouseEvent event) ->{
+            switch (tool) {
+                case ("Pen"):
+                    if (get_in_use() == "freeB") {
+                        graphicsContext.setLineDashes(0);
+                        graphicsContext.setLineWidth(linewidth);
+                        graphicsContext.lineTo(event.getX(), event.getY());
+                        graphicsContext.stroke();
+                    }
+                case ("Line"):
+                case ("Square"):
+                case ("Rectangle"):
+                case ("Circle"):
+                case ("Ellipse"):
+                case ("Rounded Rectangle"):
+                case ("Dashed Line"):
+                case ("Eraser"):
+                    if (get_in_use() == "eraserB") {
+                        graphicsContext.setFill(Color.WHITE);
+                        graphicsContext.setLineDashes(0);
+                        graphicsContext.setLineWidth(linewidth);
+                        graphicsContext.lineTo(event.getX(), event.getY());
+                        graphicsContext.setStroke(Color.WHITE);
+                        graphicsContext.stroke();
+                    }
+                case ("Color Grabber"):
+            }
+        });
+        canvas.addEventHandler(MouseEvent.MOUSE_RELEASED, (MouseEvent event) ->{
+            switch (tool){
+                case ("Pen"):
+                    if (get_in_use() == "freeB"){
+                        // Checks for loaded image
+                        if (bottom_im_added == 0){
+                            set_bottom_layer();
+                        }
+                        updated = true;
+                        saved = false;
+                        undo.push(draw_image(canvas));
+                        redo.clear();
+                    }
+                case ("Line"):
+                    if (get_in_use() == "lineB"){
+                        graphicsContext.setLineDashes(0);
+                        graphicsContext.strokeLine(initialTouch.getKey(), initialTouch.getValue(), event.getX(), event.getY());
+                        updated = true;
+                        saved = false;
+                        System.out.println("Check2");
+                        undo.push(draw_image(canvas));
+                        redo.clear();
+                    }
+                case ("Square"):
+                    if (get_in_use() == "squareB"){
+                        graphicsContext.setLineDashes(0);
+                        graphicsContext.strokeRect(initialTouch.getKey(), initialTouch.getValue(), event.getX() - initialTouch.getKey(), event.getX() - initialTouch.getKey());
+                        updated = true;
+                        saved = false;
+                        undo.push(draw_image(canvas));
+                        redo.clear();
+                    }
+                case ("Rectangle"):
+                    if (get_in_use() == "rectangleB"){
+                        graphicsContext.setLineDashes(0);
+                        graphicsContext.strokeRect(initialTouch.getKey(), initialTouch.getValue(), event.getX() - initialTouch.getKey(), event.getY() - initialTouch.getValue());
+                        updated = true;
+                        saved = false;
+                        undo.push(draw_image(canvas));
+                        redo.clear();
+                    }
+                case ("Circle"):
+                    if (get_in_use() == "circleB"){
+                        graphicsContext.setLineDashes(0);
+                        graphicsContext.strokeOval(initialTouch.getKey(), initialTouch.getValue(), event.getX() - initialTouch.getKey(), event.getX() - initialTouch.getKey());
+                        updated = true;
+                        saved = false;
+                        undo.push(draw_image(canvas));
+                        redo.clear();
+                    }
+                case ("Ellipse"):
+                    if (get_in_use() == "ellipseB"){
+                        graphicsContext.setLineDashes(0);
+                        graphicsContext.strokeOval(initialTouch.getKey(), initialTouch.getValue(), event.getX() - initialTouch.getKey(), event.getY() - initialTouch.getValue());
+                        updated = true;
+                        saved = false;
+                        undo.push(draw_image(canvas));
+                        redo.clear();
+                    }
+                case ("Rounded Rectangle"):
+                    if (get_in_use() == "roundedB"){
+                        graphicsContext.setLineDashes(0);
+                        graphicsContext.strokeRoundRect(initialTouch.getKey(), initialTouch.getValue(), event.getX() - initialTouch.getKey(), event.getY() - initialTouch.getValue(), 20, 20);
+                        updated = true;
+                        saved = false;
+                        undo.push(draw_image(canvas));
+                        redo.clear();
+                    }
+                case ("Dashed Line"):
+                    if (get_in_use() == "dashedB"){
+                        graphicsContext.setLineDashes(25);
+                        graphicsContext.strokeLine(initialTouch.getKey(), initialTouch.getValue(), event.getX(), event.getY());
+                        updated = true;
+                        saved = false;
+                        undo.push(draw_image(canvas));
+                        redo.clear();
+                    }
+                case ("Eraser"):
+                    if (get_in_use() == "eraserB"){
+                        graphicsContext.setFill(Color.WHITE);
+                        graphicsContext.setLineWidth(linewidth);
+                        graphicsContext.beginPath();
+                        graphicsContext.moveTo(event.getX(), event.getY());
+                        graphicsContext.setStroke(Color.WHITE);
+                        graphicsContext.stroke();
+                        graphicsContext.fill();
+                    }
+                case ("Color Grabber"):
+                    if (get_in_use() == "colorB"){
+                        int xValue = MouseInfo.getPointerInfo().getLocation().x;
+                        int yValue = MouseInfo.getPointerInfo().getLocation().y;
+                        Robot robot = new Robot();
+                        Color color = robot.getPixelColor(xValue, yValue);
+                        colorPicker.setValue(color);
+                        text.setFill(colorPicker.getValue());
+                    }
+                case ("Polygon"):
+                    if (get_in_use() == "polygonB"){
+                        System.out.println("Stuff");
+                    }
+            }
+        });
+    }
+
+    public void polygon(Canvas canvas){
+        root = new StackPane();
+        canvas = get_canvas();
+        ScrollPane scrolls = new ScrollPane();
+        final GraphicsContext graphicsContext = canvas.getGraphicsContext2D();
+
+        Text text = new Text("Ignore");
+        master_handle(canvas, "Polygon", text);
+
+        scrolls.setContent(canvas);
+        root.getChildren().add(scrolls);
+        Main.get_pane().setCenter(root);
+
+    }
+
+    public void polygon_sides_prompt(Canvas canvas){
+        // Creates prompt window
+        GridPane grid = new GridPane();
+        grid.setAlignment(Pos.CENTER);
+        grid.setHgap(10);
+        grid.setVgap(10);
+        grid.setPadding(new Insets(25, 25, 25, 25));
+
+        // Add prompts for number of sides
+        Label xvar= new Label("Set how many sides you want:");
+        grid.add(xvar, 0, 1);
+        TextField userentry1= new TextField();
+        grid.add(userentry1, 1, 1);
+
+        // Adds enter button
+        Button btn = new Button("Enter");
+        HBox hbBtn = new HBox(10);
+        hbBtn.setAlignment(Pos.BOTTOM_CENTER);
+        hbBtn.getChildren().add(btn);
+        grid.add(hbBtn, 1, 4);
+
+        btn.setOnAction(new EventHandler<ActionEvent>() {
+            @Override
+            public void handle(ActionEvent e) {
+                // Converts to int
+                String temp = userentry1.getText();
+                polygon_sides = Integer.parseInt(temp);
+                polygon(canvas);
+            }
+        });
+
+        // Sets grid on screne
+        BorderPane root = new BorderPane();
+        root.setCenter(grid);
+        Stage pop_stage = new Stage();
+        pop_stage.setTitle("Polygon request");
+        Scene pop_scene = new Scene(root, 400, 400);
+        pop_stage.setScene(pop_scene);
+        pop_stage.show();
+
+    }
+
+    public void eraser(Canvas canvas){
+        // Eraser function
+        root = new StackPane();
+        canvas = get_canvas();
+        ScrollPane scrolls = new ScrollPane();
+        final GraphicsContext graphicsContext = canvas.getGraphicsContext2D();
+
+        Text text = new Text("Ignore");
+
+        master_handle(canvas, "Eraser", text);
+
+        scrolls.setContent(canvas);
+        root.getChildren().add(scrolls);
+        Main.get_pane().setCenter(root);
+    }
+
+    public void undo_clear_canvas(Canvas canvas){
+        final GraphicsContext graphicsContext = canvas.getGraphicsContext2D();
+        graphicsContext.setFill(Color.WHITE);
+        graphicsContext.clearRect(0, 0, graphicsContext.getCanvas().getWidth(), graphicsContext.getCanvas().getHeight());
+        graphicsContext.strokeRect(0, 0, graphicsContext.getCanvas().getWidth(), graphicsContext.getCanvas().getHeight());
+        graphicsContext.fillRect(0, 0, graphicsContext.getCanvas().getWidth(), graphicsContext.getCanvas().getHeight());
+    }
+
+    public void clear_canvas(Canvas canvas){
+        // Creates alert box
+        Alert alert = new Alert(Alert.AlertType.CONFIRMATION);
+        alert.setTitle("Clear canvas");
+        alert.setContentText("Are you sure you want to clear the canvas?");
+
+        // Creates save, discard, cancel options
+        ButtonType yes_opt = new ButtonType("Yes");
+        ButtonType cancel_opt = new ButtonType("Cancel", ButtonBar.ButtonData.CANCEL_CLOSE);
+        alert.getButtonTypes().setAll(yes_opt, cancel_opt);
+
+        Optional<ButtonType> result = alert.showAndWait();
+        if (result.get() == yes_opt) {
+            // Clears canvas
+            canvas = get_canvas();
+            final GraphicsContext graphicsContext = canvas.getGraphicsContext2D();
+            graphicsContext.setFill(Color.WHITE);
+            graphicsContext.clearRect(0, 0, graphicsContext.getCanvas().getWidth(), graphicsContext.getCanvas().getHeight());
+            graphicsContext.strokeRect(0, 0, graphicsContext.getCanvas().getWidth(), graphicsContext.getCanvas().getHeight());
+            graphicsContext.fillRect(0, 0, graphicsContext.getCanvas().getWidth(), graphicsContext.getCanvas().getHeight());
+
+        } else {
+            // User chose cancel or exited the alert
+            alert.close();
+        }
+
+    }
+
+    public void draw_rounded_rect(Canvas canvas){
+        // Rounded rectangle function
+        root = new StackPane();
+        canvas = get_canvas();
+        ScrollPane scrolls = new ScrollPane();
+        final GraphicsContext graphicsContext = canvas.getGraphicsContext2D();
+
+        Text text = new Text("Ignore");
+
+        master_handle(canvas, "Rounded Rectangle", text);
+
+        scrolls.setContent(canvas);
+        root.getChildren().add(scrolls);
+
+        Main.get_pane().setCenter(root);
     }
 
     public void color_grabber(Canvas canvas, Text text){
@@ -275,20 +848,7 @@ public class draw extends help_bar{
         canvas = get_canvas();
         ScrollPane scrolls = new ScrollPane();
 
-        canvas.addEventHandler(MouseEvent.MOUSE_PRESSED, (MouseEvent event) -> {
-            int xValue = MouseInfo.getPointerInfo().getLocation().x;
-            int yValue = MouseInfo.getPointerInfo().getLocation().y;
-            Robot robot = new Robot();
-            Color color = robot.getPixelColor(xValue, yValue);
-            colorPicker.setValue(color);
-            text.setFill(colorPicker.getValue());
-        });
-
-        canvas.addEventHandler(MouseEvent.MOUSE_DRAGGED, (MouseEvent event) -> {
-        });
-
-        canvas.addEventHandler(MouseEvent.MOUSE_RELEASED, (MouseEvent event) -> {
-        });
+        master_handle(canvas, "Color Grabber", text);
 
         scrolls.setContent(canvas);
         Main.get_pane().setCenter(scrolls);
@@ -302,28 +862,11 @@ public class draw extends help_bar{
         scroll = get_scrolls();
         ScrollPane scrolls = new ScrollPane();
 
-        Canvas top_canvas = new Canvas(canvas.getHeight(), canvas.getWidth());
         final GraphicsContext graphicsContext = canvas.getGraphicsContext2D();
 
-        canvas.addEventHandler(MouseEvent.MOUSE_PRESSED, (MouseEvent event) -> {
-            graphicsContext.setLineDashes(0);
-            graphicsContext.setLineWidth(linewidth);
-            ellipse = new Ellipse();
-            ellipse.setCenterX(event.getX());
-            ellipse.setCenterY(event.getY());
-            ellipse.setStroke(Color.BLACK);
-            root.getChildren().add(ellipse);
-        });
+        Text text = new Text("Ignore");
 
-        canvas.addEventHandler(MouseEvent.MOUSE_DRAGGED, (MouseEvent event) -> {
-            ellipse.setRadiusX(event.getX() - ellipse.getCenterX());
-            ellipse.setRadiusY(event.getY() - ellipse.getCenterY());
-        });
-
-        canvas.addEventHandler(MouseEvent.MOUSE_RELEASED, (MouseEvent event) -> {
-            updated = true;
-            saved = false;
-        });
+        master_handle(canvas, "Ellipse", text);
 
         scrolls.setContent(canvas);
         root.getChildren().add(scrolls);
@@ -338,20 +881,9 @@ public class draw extends help_bar{
         scroll = get_scrolls();
         final GraphicsContext graphicsContext = canvas.getGraphicsContext2D();
 
-        canvas.addEventHandler(MouseEvent.MOUSE_PRESSED, (MouseEvent event) -> {
-            graphicsContext.setLineWidth(linewidth);
-            initialTouch = new Pair<>(event.getX(), event.getY());
-        });
+        Text text = new Text("Ignore");
 
-        canvas.addEventHandler(MouseEvent.MOUSE_DRAGGED, (MouseEvent event) -> {
-        });
-
-        canvas.addEventHandler(MouseEvent.MOUSE_RELEASED, (MouseEvent event) -> {
-            graphicsContext.setLineDashes(0);
-            graphicsContext.strokeOval(initialTouch.getKey(), initialTouch.getValue(), event.getX() - initialTouch.getKey(), event.getX() - initialTouch.getKey());
-            updated = true;
-            saved = false;
-        });
+        master_handle(canvas, "Circle", text);
 
         scrolls.setContent(canvas);
         root.getChildren().add(scrolls);
@@ -366,20 +898,9 @@ public class draw extends help_bar{
         ScrollPane scrolls = new ScrollPane();
         final GraphicsContext graphicsContext = canvas.getGraphicsContext2D();
 
-        canvas.addEventHandler(MouseEvent.MOUSE_PRESSED, (MouseEvent event) -> {
-            graphicsContext.setLineWidth(linewidth);
-            initialTouch = new Pair<>(event.getX(), event.getY());
-        });
+        Text text = new Text("Ignore");
 
-        canvas.addEventHandler(MouseEvent.MOUSE_DRAGGED, (MouseEvent event) -> {
-        });
-
-        canvas.addEventHandler(MouseEvent.MOUSE_RELEASED, (MouseEvent event) -> {
-            graphicsContext.setLineDashes(0);
-            graphicsContext.strokeRect(initialTouch.getKey(), initialTouch.getValue(), event.getX() - initialTouch.getKey(), event.getX() - initialTouch.getKey());
-            updated = true;
-            saved = false;
-        });
+        master_handle(canvas, "Square", text);
 
         scrolls.setContent(canvas);
         root.getChildren().add(scrolls);
@@ -393,20 +914,9 @@ public class draw extends help_bar{
         ScrollPane scrolls = new ScrollPane();
         final GraphicsContext graphicsContext = canvas.getGraphicsContext2D();
 
-        canvas.addEventHandler(MouseEvent.MOUSE_PRESSED, (MouseEvent event) -> {
-            graphicsContext.setLineWidth(linewidth);
-            initialTouch = new Pair<>(event.getX(), event.getY());
-        });
+        Text text = new Text("Ignore");
 
-        canvas.addEventHandler(MouseEvent.MOUSE_DRAGGED, (MouseEvent event) -> {
-        });
-
-        canvas.addEventHandler(MouseEvent.MOUSE_RELEASED, (MouseEvent event) -> {
-            graphicsContext.setLineDashes(0);
-            graphicsContext.strokeRect(initialTouch.getKey(), initialTouch.getValue(), event.getX() - initialTouch.getKey(), event.getY() - initialTouch.getValue());
-            updated = true;
-            saved = false;
-        });
+        master_handle(canvas, "Rectangle", text);
 
         scrolls.setContent(canvas);
         root.getChildren().add(scrolls);
@@ -421,20 +931,9 @@ public class draw extends help_bar{
         ScrollPane scrolls = new ScrollPane();
         final GraphicsContext graphicsContext = canvas.getGraphicsContext2D();
 
-        canvas.addEventHandler(MouseEvent.MOUSE_PRESSED, (MouseEvent event) -> {
-            graphicsContext.setLineWidth(linewidth);
-            initialTouch = new Pair<>(event.getX(), event.getY());
-        });
+        Text text = new Text("Ignore");
 
-        canvas.addEventHandler(MouseEvent.MOUSE_DRAGGED, (MouseEvent event) -> {
-        });
-
-        canvas.addEventHandler(MouseEvent.MOUSE_RELEASED, (MouseEvent event) -> {
-            graphicsContext.setLineDashes(25);
-            graphicsContext.strokeLine(initialTouch.getKey(), initialTouch.getValue(), event.getX(), event.getY());
-            updated = true;
-            saved = false;
-        });
+        master_handle(canvas, "Dashed Line", text);
 
         scrolls.setContent(canvas);
         root.getChildren().add(scrolls);
@@ -449,20 +948,9 @@ public class draw extends help_bar{
         ScrollPane scrolls = new ScrollPane();
         final GraphicsContext graphicsContext = canvas.getGraphicsContext2D();
 
-        canvas.addEventHandler(MouseEvent.MOUSE_PRESSED, (MouseEvent event) -> {
-            graphicsContext.setLineWidth(linewidth);
-            initialTouch = new Pair<>(event.getX(), event.getY());
-        });
+        Text text = new Text("Ignore");
 
-        canvas.addEventHandler(MouseEvent.MOUSE_DRAGGED, (MouseEvent event) -> {
-        });
-
-        canvas.addEventHandler(MouseEvent.MOUSE_RELEASED, (MouseEvent event) -> {
-            graphicsContext.setLineDashes(0);
-            graphicsContext.strokeLine(initialTouch.getKey(), initialTouch.getValue(), event.getX(), event.getY());
-            updated = true;
-            saved = false;
-        });
+        master_handle(canvas, "Line", text);
 
         scrolls.setContent(canvas);
         root.getChildren().add(scrolls);
@@ -555,24 +1043,9 @@ public class draw extends help_bar{
         ScrollPane scrolls = new ScrollPane();
         final GraphicsContext graphicsContext = canvas.getGraphicsContext2D();
 
-        canvas.addEventHandler(MouseEvent.MOUSE_PRESSED, (MouseEvent event)  -> {
-            graphicsContext.setLineWidth(linewidth);
-            graphicsContext.beginPath();
-            graphicsContext.moveTo(event.getX(), event.getY());
-            graphicsContext.stroke();
-        });
+        Text text = new Text("Ignore");
 
-        canvas.addEventHandler(MouseEvent.MOUSE_DRAGGED, (MouseEvent event) -> {
-            graphicsContext.setLineDashes(0);
-            graphicsContext.setLineWidth(linewidth);
-            graphicsContext.lineTo(event.getX(), event.getY());
-            graphicsContext.stroke();
-        });
-
-        canvas.addEventHandler(MouseEvent.MOUSE_RELEASED, (MouseEvent event) -> {
-            updated = true;
-            saved = false;
-        });
+        master_handle(canvas, "Pen", text);
 
         initDraw(graphicsContext, canvas.getLayoutX(), canvas.getLayoutY());
 
@@ -593,7 +1066,7 @@ public class draw extends help_bar{
     }
 
     private void initDraw(GraphicsContext gc, double x, double y) {
-        // Fills in line
+        // Initial canvas space
         double canvasWidth = gc.getCanvas().getWidth();
         double canvasHeight = gc.getCanvas().getHeight();
 
