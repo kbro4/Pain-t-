@@ -44,7 +44,7 @@ public class display_menu {
     public static ScrollPane scroll;
     private File file1;
     public Boolean saved;
-    private Boolean image_loaded;
+    public Boolean image_loaded;
     private int tabcounter = 0;
     private TabPane tabpane;
     private Tab tab1;
@@ -52,6 +52,7 @@ public class display_menu {
     private Tab current_tab;
     private HashMap tab_files;
     String tab_file_path;
+    public Image first_image;
 
     public display_menu(){
 
@@ -76,6 +77,9 @@ public class display_menu {
 
         // Creates canvas
         canvas1 = new Canvas(1100.0, 700.0);
+        GraphicsContext gc = canvas1.getGraphicsContext2D();
+        gc.setFill(Color.WHITE);
+        gc.fillRect(0, 0, gc.getCanvas().getWidth(), gc.getCanvas().getHeight());
         scroll.setContent(canvas1);
         Main.get_pane().setCenter(scroll);
 
@@ -109,6 +113,14 @@ public class display_menu {
         op_item.setAccelerator(new KeyCodeCombination(KeyCode.O, KeyCombination.CONTROL_DOWN));
         s_item.setAccelerator(new KeyCodeCombination(KeyCode.S, KeyCombination.CONTROL_DOWN));
         close_item.setAccelerator(new KeyCodeCombination(KeyCode.E, KeyCombination.CONTROL_DOWN));
+    }
+
+    public void set_image(Image image){
+        first_image = image;
+    }
+
+    public Image get_image(){
+        return first_image;
     }
 
     public VBox get_vbox(){
@@ -146,6 +158,9 @@ public class display_menu {
         Image image = new Image(file1.toURI().toString());
         imageview = new ImageView(image);
         Main.get_pane().setCenter(imageview);
+
+        // Sets image
+        set_image(image);
 
         // Sets canvas w/image
         canvas1.setHeight(image.getHeight());
@@ -223,6 +238,9 @@ public class display_menu {
         set_file(new_file);
         tab_files.put(new_tab, new_file);
 
+        // Sets the image
+        set_image(image);
+
         // Adds new tab to tabpane
         get_tabpane().getTabs().addAll(new_tab);
 
@@ -234,12 +252,17 @@ public class display_menu {
         Main.get_pane().setCenter(innerpane);
     }
 
+    public void set_canvas(Canvas canvas){
+        canvas1 = canvas;
+    }
+
+    public Tab get_current_tab(){
+        current_tab = tabpane.getSelectionModel().getSelectedItem();
+        return current_tab;
+    }
+
     public File get_tab_file(){
         current_tab = tabpane.getSelectionModel().getSelectedItem();
-        System.out.println(tab_files.get(current_tab));
-        //tab_file_path = tab_files.get(current_tab).
-        //tab_file_path = tab_files.get(current_tab).toString();
-        //file1 = tab_files.get(current_tab);
         set_file(file1);
         return get_file();
     }
@@ -264,7 +287,7 @@ public class display_menu {
 
     public void save(Stage stage, File file, ImageView imgView, Canvas canvas) {
         if (tabcounter != 0){
-            get_tab_file();
+            get_current_tab();
         }
         SnapshotParameters snap = new SnapshotParameters();
         file = get_file();
