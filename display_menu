@@ -1,5 +1,6 @@
 package com.example.paint;
 
+import javafx.animation.Timeline;
 import javafx.embed.swing.SwingFXUtils;
 import javafx.event.ActionEvent;
 import javafx.event.EventHandler;
@@ -23,12 +24,17 @@ import javafx.stage.Stage;
 import javax.imageio.ImageIO;
 import java.awt.image.RenderedImage;
 import java.io.*;
-import java.util.Collection;
+import java.util.*;
 import java.util.logging.Level;
 import java.util.logging.Logger;
-import java.util.HashMap;
 
+import static com.example.paint.Main.get_stage;
 
+/**
+ * Creates and displays menu bar, canvas, and tabs
+ * @author Kurt Brown
+ * @version 1.5.1
+ */
 public class display_menu {
     protected MenuBar menubar;
     public static Canvas canvas1;
@@ -42,7 +48,7 @@ public class display_menu {
     private File file2;
     private static draw pen;
     public static ScrollPane scroll;
-    private File file1;
+    public File file1;
     public Boolean saved;
     public Boolean image_loaded;
     private int tabcounter = 0;
@@ -53,7 +59,14 @@ public class display_menu {
     private HashMap tab_files;
     String tab_file_path;
     public Image first_image;
+    Timer timer;
+    private java.awt.Label timerlabel;
+    private Integer time_seconds;
+    private Timeline timeline;
 
+    /**
+     * Default constructor, creates menu bar, canvas, and key combination
+     */
     public display_menu(){
 
         ScrollPane scroll = new ScrollPane();
@@ -115,38 +128,74 @@ public class display_menu {
         close_item.setAccelerator(new KeyCodeCombination(KeyCode.E, KeyCombination.CONTROL_DOWN));
     }
 
+    /**
+     * Sets image to specified image value
+     * @param image
+     */
     public void set_image(Image image){
         first_image = image;
     }
 
+    /**
+     * Gets the original image
+     * @return first_image The starting image of the user interface
+     */
     public Image get_image(){
         return first_image;
     }
 
+    /**
+     * Gets file menu
+     * @return vbox The VBox that houses the file menu
+     */
     public VBox get_vbox(){
         return this.vbox;
     }
 
+    /**
+     * Gets the current imageview
+     * @return imageView The current imageview
+     */
     public ImageView get_imageview(){
         return this.imageview;
     }
 
+    /**
+     * Gets the current canvas
+     * @return canvas1 The current working canvas
+     */
     public Canvas get_canvas(){
         return this.canvas1;
     }
 
+    /**
+     * Gets the canvas passed to the method
+     * @param canvas2 A canvas passed to the method
+     * @return canvas2 The canvas passed to the method
+     */
     public Canvas get_canvas(Canvas canvas2){
         return canvas2;
     }
 
+    /**
+     * Sets the canvas width to a new width
+     * @param new_width The new desired width of the canvas
+     */
     public void alter_canvas_width(double new_width){
         canvas1.setWidth(new_width);
     }
 
+    /**
+     * Sets the canvas height to a new height
+     * @param new_height The new desired height of the canvas
+     */
     public void alter_canvas_height(double new_height){
         canvas1.setHeight(new_height);
     }
 
+    /**
+     * Opens an image
+     */
     public void open_image() {
         // Creates file chooser
         Stage stage = new Stage();
@@ -179,6 +228,10 @@ public class display_menu {
         image_loaded = true;
     }
 
+    /**
+     * Opens an image with tabs
+     * @param canvas The current canvas
+     */
     public void tab_open(Canvas canvas){
         if (tabcounter == 0){
             // Creates first tab
@@ -252,39 +305,75 @@ public class display_menu {
         Main.get_pane().setCenter(innerpane);
     }
 
+    /**
+     * Sets a new canvas as the current working canvas
+     * @param canvas The new canvas one wants to set the working canvas to
+     */
     public void set_canvas(Canvas canvas){
         canvas1 = canvas;
     }
 
+    /**
+     * Gets the currently selected tab
+     * @return current_tab The currently selected tab
+     */
     public Tab get_current_tab(){
         current_tab = tabpane.getSelectionModel().getSelectedItem();
         return current_tab;
     }
 
+    /**
+     * Gets the file for the current tab
+     * @return get_file() The current file
+     */
     public File get_tab_file(){
         current_tab = tabpane.getSelectionModel().getSelectedItem();
         set_file(file1);
         return get_file();
     }
 
+    /**
+     * Gets the tabpane
+     * @return tabpane The tabpane
+     */
     public TabPane get_tabpane(){
         return tabpane;
     }
 
+    /**
+     * Sets a new tabpane as the working tabpane
+     * @param new_tabpane The new desired tabpane
+     */
     public void set_tabpane(TabPane new_tabpane){
         tabpane = new_tabpane;
     }
 
+    /**
+     * Gets the scrollpane
+     * @return scroll The scrollpane
+     */
     public ScrollPane get_scrolls(){
         return this.scroll;
     }
 
+    /**
+     * Sets a new canvas as the working one with an image underneath it
+     * @param canvas1 The canvas one wants to set the working canvas to
+     * @param img The imaage one wants to place underneath the new working canvas
+     */
     public static void setCanvas(Canvas canvas1, Image img){
         // Sets image on canvas
         GraphicsContext gc = canvas1.getGraphicsContext2D();
         gc.drawImage(img, 0, 0,canvas1.getWidth(), canvas1.getHeight());
     }
 
+    /**
+     * Saves the current file
+     * @param stage The current stage
+     * @param file The file to be saved
+     * @param imgView The current imageview
+     * @param canvas The current, working canvas
+     */
     public void save(Stage stage, File file, ImageView imgView, Canvas canvas) {
         if (tabcounter != 0){
             get_current_tab();
@@ -304,7 +393,16 @@ public class display_menu {
         }
     }
 
+    /**
+     * Saves the current file with a specified location and url
+     * @param stage The current stage
+     * @param file The current file
+     * @param imgView The current imageview
+     * @param canvas The current, working canvas
+     */
     public void save_as(Stage stage, File file, ImageView imgView, Canvas canvas) {
+        String orig_ext = new String(check_extension());
+        Boolean continued = true;
         // Creates file chooser
         FileChooser filechooser = new FileChooser();
         FileChooser.ExtensionFilter extFilter1 = new FileChooser.ExtensionFilter(
@@ -316,30 +414,96 @@ public class display_menu {
         filechooser.getExtensionFilters().addAll(extFilter1, extFilter2, extFilter3);
         filechooser.setSelectedExtensionFilter(extFilter1);
         file = filechooser.showSaveDialog(stage);
-        SnapshotParameters snap = new SnapshotParameters();
-        if (file != null){
-            try {
-                // Saves image
-                WritableImage image = canvas.snapshot(snap, null);
-                RenderedImage renderedImage = SwingFXUtils.fromFXImage(image, null);
-                ImageIO.write(renderedImage, "png", file);
-            }
-            catch (IOException exception){
-                Logger.getLogger(Main.class.getName()).log(Level.SEVERE,null, exception);
+        if (!check_same_type(file, orig_ext)){
+            if (!loss_alert()){
+                SnapshotParameters snap = new SnapshotParameters();
+                if (file != null){
+                    try {
+                        // Saves image
+                        WritableImage image = canvas.snapshot(snap, null);
+                        RenderedImage renderedImage = SwingFXUtils.fromFXImage(image, null);
+                        ImageIO.write(renderedImage, "png", file);
+                    }
+                    catch (IOException exception){
+                        Logger.getLogger(Main.class.getName()).log(Level.SEVERE,null, exception);
+                    }
+                }
+
+                set_file(file);
             }
         }
-
-        set_file(file);
     }
 
+    /**
+     * Checks to see if the user wants to save to a different file type
+     * @return Boolean whether the user wants to cancel the save
+     */
+    public Boolean loss_alert(){
+        // Creates alert box
+        Alert alert = new Alert(Alert.AlertType.CONFIRMATION);
+        alert.setTitle("Change file format");
+        alert.setContentText("Changing the file format may result in data loss. Continue?");
+
+        // Creates save, discard, cancel options
+        ButtonType yes_opt = new ButtonType("Yes");
+        ButtonType cancel_opt = new ButtonType("Cancel", ButtonBar.ButtonData.CANCEL_CLOSE);
+        alert.getButtonTypes().setAll(yes_opt, cancel_opt);
+
+        Optional<ButtonType> result = alert.showAndWait();
+        if (result.get() == cancel_opt) {
+            alert.close();
+            return true;
+        }
+        else {
+            return false;
+        }
+    }
+
+    /**
+     * Gets the file extension
+     * @return suffix The last three characters of the url
+     */
+    public String check_extension(){
+        String suffix = file.toString().substring(file.toString().length() - 3);
+        return suffix;
+    }
+
+    /**
+     * Checks to see whether the file is the same type as the desired save file format
+     * @param file The file to be saved
+     * @param string The original extension of the file
+     * @return boolean Whether the file format has been changed or not
+     */
+    public Boolean check_same_type(File file, String string){
+        String suffix = file.toString().substring(file.toString().length() - 3);
+        if (suffix == string){
+            return true;
+        }
+        else {
+            return false;
+        }
+    }
+
+    /**
+     * Sets a new file as the current, working file
+     * @param new_file The new file to set as the current, working file
+     */
     public void set_file(File new_file){
         file1 = new_file;
     }
 
+    /**
+     * Gets the current, working file
+     * @return file1 The current, working file
+     */
     public File get_file(){
         return file1;
     }
 
+    /**
+     * Closes the application
+     * @param stage2 The current stage
+     */
     public static void close(Stage stage2){
         // Close function
         stage2.close();
