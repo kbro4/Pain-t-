@@ -24,8 +24,7 @@ import javafx.stage.Stage;
 import javafx.stage.FileChooser;
 import javafx.stage.FileChooser.ExtensionFilter;
 
-import java.util.Optional;
-import java.util.Stack;
+import java.util.*;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.awt.image.RenderedImage;
@@ -33,8 +32,6 @@ import javafx.embed.swing.SwingFXUtils;
 
 import java.io.*;
 import java.io.IOException;
-import java.util.List;
-import java.util.Scanner;
 
 import javafx.scene.Group;
 import javafx.scene.image.Image;
@@ -61,6 +58,7 @@ public class Main extends Application {
         scroll.setContent(menu.get_canvas());
         scroll.setPannable(true);
         draw pen1 = new draw(menu.get_canvas());
+        timer new_timer = new timer();
 
         // Puts everything together on the border pane
         pane.setTop(pen1.get_HBox());
@@ -79,13 +77,13 @@ public class Main extends Application {
         stage.setOnCloseRequest(e -> {
             updated = pen1.check_updated();
             e.consume();
-            aware_save(pen1);
+            aware_save(pen1, new_timer.get_timer());
         });
 
     }
 
 
-    public void aware_save(draw pen1){
+    public void aware_save(draw pen1, Timer timer){
         // Checks to see if the canvas has been updated
         if (updated) {
             // Creates alert box
@@ -109,10 +107,12 @@ public class Main extends Application {
                 else {
                     pen1.save_as(stage2, pen1.get_file(), pen1.get_imageview(), pen1.get_canvas());
                 }
+                timer.cancel();
                 stage2.close();
 
             } else if (result.get() == discard_opt) {
                 // User chose don't save
+                timer.cancel();
                 stage2.close();
             } else {
                 // User chose cancel or exited the alert
@@ -120,20 +120,30 @@ public class Main extends Application {
             }
         }
         else {
+            timer.cancel();
             stage2.close();
         }
+    }
+
+    public static void set_pane(BorderPane new_pane){
+        pane = new_pane;
     }
 
     public static BorderPane get_pane(){
         return pane;
     }
-
     public static Stage get_stage(){
         return stage2;
     }
 
     public static void main(String[] args) {
         launch();
+    }
+    public Boolean get_updated(){
+        return updated;
+    }
+    public void set_updated(Boolean new_value){
+        updated = new_value;
     }
 
     public static ImageView user_interface(Stage stage){
