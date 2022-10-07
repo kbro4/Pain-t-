@@ -64,12 +64,15 @@ public class draw extends help_bar{
     double x2;
     double y1;
     double y2;
+    private double[] last_cords;
+    private int match_count;
 
     public draw(Canvas canvas){
         menubar = super.menubar;
         updated = false;
         saved = true;
         bottom_im_added = 0;
+        last_cords = new double[4];
         final GraphicsContext graphicsContext = canvas.getGraphicsContext2D();
 
         // Puts initial canvas at bottom layer of stack
@@ -367,6 +370,14 @@ public class draw extends help_bar{
         button_box.getChildren().addAll(resetButton, undoB, redoB, colorPicker, sizeChooser, resize, toolbar);
     }
 
+    public void set_line_width(int new_width){
+        linewidth = new_width;
+    }
+
+    public int get_line_width(){
+        return linewidth;
+    }
+
     public void image_copy(Image image){
         Canvas canvas = get_canvas();
         // Gets area user wants to copy
@@ -419,8 +430,6 @@ public class draw extends help_bar{
             canvas.setOnMousePressed((MouseEvent event) -> {
                 double x = event.getX();
                 double y = event.getY();
-                //scrolls.setContent(get_canvas());
-                //root.getChildren().addAll(scrolls);
                 draw_image(image, canvas, x, y, rectangle);
                 scrolls.setContent(get_canvas());
                 root.getChildren().addAll(scrolls);
@@ -438,14 +447,6 @@ public class draw extends help_bar{
     }
 
     public Image draw_image(Canvas canvas){
-        // Gets image after change
-        /*
-        SnapshotParameters snap = new SnapshotParameters();
-        WritableImage image = canvas.snapshot(snap, null);
-        System.out.println(undo);
-        return image;
-         */
-
         WritableImage image = new WritableImage((int) canvas.getWidth(), (int) canvas.getHeight());
         canvas.snapshot(null, image);
         return image;
@@ -500,17 +501,14 @@ public class draw extends help_bar{
         }
     }
 
-    public void update_stacks(){
-        undo.push(draw_image(get_canvas()));
-        redo.clear();
-    }
-
     public String get_in_use(){
         return in_use;
     }
 
     public void master_handle(Canvas canvas, String tool, Text text){
         GraphicsContext graphicsContext = canvas.getGraphicsContext2D();
+        double[] xPoints = new double[polygon_sides];
+        double[] yPoints = new double[polygon_sides];
 
         // Master handler for all draw/shapes tools
         canvas.addEventHandler(MouseEvent.MOUSE_PRESSED, (MouseEvent event) ->{
@@ -525,7 +523,6 @@ public class draw extends help_bar{
                 case ("Line"):
                     if (get_in_use() == "lineB"){
                         graphicsContext.setLineWidth(linewidth);
-                        System.out.println("Check1");
                         initialTouch = new Pair<>(event.getX(), event.getY());
                     }
                 case ("Square"):
@@ -579,7 +576,7 @@ public class draw extends help_bar{
                     }
                 case ("Polygon"):
                     if (get_in_use() == "polygonB"){
-                        System.out.println("Stuff");
+                        initialTouch = new Pair<>(event.getX(), event.getY());
                     }
             }
         });
@@ -610,6 +607,7 @@ public class draw extends help_bar{
                         graphicsContext.stroke();
                     }
                 case ("Color Grabber"):
+                case ("Polygon"):
             }
         });
         canvas.addEventHandler(MouseEvent.MOUSE_RELEASED, (MouseEvent event) ->{
@@ -631,9 +629,14 @@ public class draw extends help_bar{
                         graphicsContext.strokeLine(initialTouch.getKey(), initialTouch.getValue(), event.getX(), event.getY());
                         updated = true;
                         saved = false;
-                        System.out.println("Check2");
-                        undo.push(draw_image(canvas));
-                        redo.clear();
+                        if (!check_last_cords(initialTouch.getKey(), initialTouch.getValue(), event.getX(), event.getY())){
+                            undo.push(draw_image(canvas));
+                            last_cords[0] = initialTouch.getKey();
+                            last_cords[1] = initialTouch.getValue();
+                            last_cords[2] = event.getX();
+                            last_cords[3] = event.getY();
+                            redo.clear();
+                        }
                     }
                 case ("Square"):
                     if (get_in_use() == "squareB"){
@@ -641,8 +644,14 @@ public class draw extends help_bar{
                         graphicsContext.strokeRect(initialTouch.getKey(), initialTouch.getValue(), event.getX() - initialTouch.getKey(), event.getX() - initialTouch.getKey());
                         updated = true;
                         saved = false;
-                        undo.push(draw_image(canvas));
-                        redo.clear();
+                        if (!check_last_cords(initialTouch.getKey(), initialTouch.getValue(), event.getX() - initialTouch.getKey(), event.getX() - initialTouch.getKey())){
+                            undo.push(draw_image(canvas));
+                            last_cords[0] = initialTouch.getKey();
+                            last_cords[1] = initialTouch.getValue();
+                            last_cords[2] = event.getX() - initialTouch.getKey();
+                            last_cords[3] = event.getX() - initialTouch.getKey();
+                            redo.clear();
+                        }
                     }
                 case ("Rectangle"):
                     if (get_in_use() == "rectangleB"){
@@ -650,8 +659,14 @@ public class draw extends help_bar{
                         graphicsContext.strokeRect(initialTouch.getKey(), initialTouch.getValue(), event.getX() - initialTouch.getKey(), event.getY() - initialTouch.getValue());
                         updated = true;
                         saved = false;
-                        undo.push(draw_image(canvas));
-                        redo.clear();
+                        if (!check_last_cords(initialTouch.getKey(), initialTouch.getValue(), event.getX() - initialTouch.getKey(), event.getY() - initialTouch.getValue())){
+                            undo.push(draw_image(canvas));
+                            last_cords[0] = initialTouch.getKey();
+                            last_cords[1] = initialTouch.getValue();
+                            last_cords[2] = event.getX() - initialTouch.getKey();
+                            last_cords[3] = event.getY() - initialTouch.getValue();
+                            redo.clear();
+                        }
                     }
                 case ("Circle"):
                     if (get_in_use() == "circleB"){
@@ -659,8 +674,14 @@ public class draw extends help_bar{
                         graphicsContext.strokeOval(initialTouch.getKey(), initialTouch.getValue(), event.getX() - initialTouch.getKey(), event.getX() - initialTouch.getKey());
                         updated = true;
                         saved = false;
-                        undo.push(draw_image(canvas));
-                        redo.clear();
+                        if (!check_last_cords(initialTouch.getKey(), initialTouch.getValue(), event.getX() - initialTouch.getKey(), event.getX() - initialTouch.getKey())){
+                            undo.push(draw_image(canvas));
+                            last_cords[0] = initialTouch.getKey();
+                            last_cords[1] = initialTouch.getValue();
+                            last_cords[2] = event.getX() - initialTouch.getKey();
+                            last_cords[3] = event.getX() - initialTouch.getKey();
+                            redo.clear();
+                        }
                     }
                 case ("Ellipse"):
                     if (get_in_use() == "ellipseB"){
@@ -668,8 +689,14 @@ public class draw extends help_bar{
                         graphicsContext.strokeOval(initialTouch.getKey(), initialTouch.getValue(), event.getX() - initialTouch.getKey(), event.getY() - initialTouch.getValue());
                         updated = true;
                         saved = false;
-                        undo.push(draw_image(canvas));
-                        redo.clear();
+                        if (!check_last_cords(initialTouch.getKey(), initialTouch.getValue(), event.getX() - initialTouch.getKey(), event.getY() - initialTouch.getValue())){
+                            undo.push(draw_image(canvas));
+                            last_cords[0] = initialTouch.getKey();
+                            last_cords[1] = initialTouch.getValue();
+                            last_cords[2] = event.getX() - initialTouch.getKey();
+                            last_cords[3] = event.getY() - initialTouch.getValue();
+                            redo.clear();
+                        }
                     }
                 case ("Rounded Rectangle"):
                     if (get_in_use() == "roundedB"){
@@ -677,8 +704,14 @@ public class draw extends help_bar{
                         graphicsContext.strokeRoundRect(initialTouch.getKey(), initialTouch.getValue(), event.getX() - initialTouch.getKey(), event.getY() - initialTouch.getValue(), 20, 20);
                         updated = true;
                         saved = false;
-                        undo.push(draw_image(canvas));
-                        redo.clear();
+                        if (!check_last_cords(initialTouch.getKey(), initialTouch.getValue(), event.getX() - initialTouch.getKey(), event.getY() - initialTouch.getValue())){
+                            undo.push(draw_image(canvas));
+                            last_cords[0] = initialTouch.getKey();
+                            last_cords[1] = initialTouch.getValue();
+                            last_cords[2] = event.getX() - initialTouch.getKey();
+                            last_cords[3] = event.getY() - initialTouch.getValue();
+                            redo.clear();
+                        }
                     }
                 case ("Dashed Line"):
                     if (get_in_use() == "dashedB"){
@@ -686,8 +719,14 @@ public class draw extends help_bar{
                         graphicsContext.strokeLine(initialTouch.getKey(), initialTouch.getValue(), event.getX(), event.getY());
                         updated = true;
                         saved = false;
-                        undo.push(draw_image(canvas));
-                        redo.clear();
+                        if (!check_last_cords(initialTouch.getKey(), initialTouch.getValue(), event.getX(), event.getY())){
+                            undo.push(draw_image(canvas));
+                            last_cords[0] = initialTouch.getKey();
+                            last_cords[1] = initialTouch.getValue();
+                            last_cords[2] = event.getX();
+                            last_cords[3] = event.getY();
+                            redo.clear();
+                        }
                     }
                 case ("Eraser"):
                     if (get_in_use() == "eraserB"){
@@ -710,11 +749,46 @@ public class draw extends help_bar{
                     }
                 case ("Polygon"):
                     if (get_in_use() == "polygonB"){
-                        System.out.println("Stuff");
+                        double width = event.getX() - initialTouch.getKey();
+                        for (int i = 0; i < xPoints.length; i++){
+                            //xPoints[i] = calc_vertices();
+                        }
                     }
             }
         });
     }
+
+    public Boolean check_last_cords(double x1, double y1, double x2, double y2){
+        match_count = 0;
+        if (x1 == last_cords[0]){
+            match_count = match_count + 1;
+        }
+        if (y1 == last_cords[1]){
+            match_count = match_count + 1;
+        }
+        if (x2 == last_cords[2]){
+            match_count = match_count + 1;
+        }
+        if (y2 == last_cords[3]){
+            match_count = match_count + 1;
+        }
+
+        if (match_count == 4){
+            return true;
+        }
+        else {
+            return false;
+        }
+    }
+    /*
+
+    public double calc_vertices(){
+        int increments = 12 / polygon_sides;
+        double point1;
+        return point1;
+    }
+
+     */
 
     public void polygon(Canvas canvas){
         root = new StackPane();
