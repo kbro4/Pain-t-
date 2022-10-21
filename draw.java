@@ -2,6 +2,7 @@ package com.example.paint;
 
 import javafx.beans.value.ChangeListener;
 import javafx.collections.FXCollections;
+import javafx.embed.swing.SwingFXUtils;
 import javafx.event.ActionEvent;
 import javafx.event.Event;
 import javafx.event.EventHandler;
@@ -30,6 +31,10 @@ import javafx.scene.text.Text;
 import javafx.stage.Stage;
 import javafx.util.Pair;
 
+import javax.imageio.ImageIO;
+import java.awt.geom.AffineTransform;
+import java.awt.image.AffineTransformOp;
+import java.awt.image.BufferedImage;
 import java.util.Stack;
 import java.awt.*;
 import java.io.File;
@@ -39,7 +44,7 @@ import java.util.ArrayList;
 import static java.awt.Color.WHITE;
 import static java.awt.SystemColor.menu;
 
-public class draw extends help_bar{
+public class draw extends help_bar {
     private HBox button_box;
     private Button pen_button;
     StackPane root;
@@ -66,13 +71,15 @@ public class draw extends help_bar{
     double y2;
     private double[] last_cords;
     private int match_count;
+    private Boolean want_rotate;
 
-    public draw(Canvas canvas){
+    public draw(Canvas canvas) {
         menubar = super.menubar;
         updated = false;
         saved = true;
         bottom_im_added = 0;
         last_cords = new double[4];
+        want_rotate = false;
         final GraphicsContext graphicsContext = canvas.getGraphicsContext2D();
 
         // Puts initial canvas at bottom layer of stack
@@ -95,7 +102,7 @@ public class draw extends help_bar{
         colorPicker.setValue(Color.WHITE);
 
         final Text text = new Text();
-        text.setFont(Font.font ("Verdana", 20));
+        text.setFont(Font.font("Verdana", 20));
         text.setFill(colorPicker.getValue());
 
         // To change colors
@@ -144,7 +151,7 @@ public class draw extends help_bar{
         sizeChooser.setTranslateX(5);
 
         final Button resize = new Button("Resize");
-        resize.setOnAction(o->{
+        resize.setOnAction(o -> {
             resize_canvas(canvas);
         });
         resize.setTranslateX(5);
@@ -155,13 +162,14 @@ public class draw extends help_bar{
 
         // Creates free draw button
         final ToggleButton freeB = new ToggleButton();
+        freeB.setTooltip(new Tooltip("Draw a free line of selected width"));
         File file = new File("C:\\Users\\kjbro\\Downloads\\free_icon.png");
         Image freeImage = new Image(file.toURI().toString());
         ImageView freeIcon = new ImageView(freeImage);
         freeIcon.setFitWidth(20);
         freeIcon.setFitHeight(20);
         freeB.setGraphic(freeIcon);
-        freeB.setOnAction(z->{
+        freeB.setOnAction(z -> {
             z.consume();
             selected.setSelected(false);
             freeB.setSelected(true);
@@ -172,13 +180,14 @@ public class draw extends help_bar{
 
         // Creates line button
         final ToggleButton lineB = new ToggleButton();
+        lineB.setTooltip(new Tooltip("Draw a fixed line of selected width"));
         File file1 = new File("C:\\Users\\kjbro\\Downloads\\line_icon.png");
         Image lineImage = new Image(file1.toURI().toString());
         ImageView lineIcon = new ImageView(lineImage);
         lineIcon.setFitWidth(20);
         lineIcon.setFitHeight(20);
         lineB.setGraphic(lineIcon);
-        lineB.setOnAction(a->{
+        lineB.setOnAction(a -> {
             a.consume();
             selected.setSelected(false);
             lineB.setSelected(true);
@@ -189,13 +198,14 @@ public class draw extends help_bar{
 
         // Creates square button
         final ToggleButton squareB = new ToggleButton();
+        squareB.setTooltip(new Tooltip("Square"));
         File file2 = new File("C:\\Users\\kjbro\\Downloads\\square_icon.png");
         Image squareImage = new Image(file2.toURI().toString());
         ImageView squareIcon = new ImageView(squareImage);
         squareIcon.setFitWidth(20);
         squareIcon.setFitHeight(20);
         squareB.setGraphic(squareIcon);
-        squareB.setOnAction(b->{
+        squareB.setOnAction(b -> {
             b.consume();
             selected.setSelected(false);
             squareB.setSelected(true);
@@ -206,13 +216,14 @@ public class draw extends help_bar{
 
         // Creates rectangle button
         final ToggleButton rectangleB = new ToggleButton();
+        rectangleB.setTooltip(new Tooltip("Rectangle"));
         File file3 = new File("C:\\Users\\kjbro\\Downloads\\rectangle_icon.jpg");
         Image rectangleImage = new Image(file3.toURI().toString());
         ImageView rectangleIcon = new ImageView(rectangleImage);
         rectangleIcon.setFitWidth(20);
         rectangleIcon.setFitHeight(20);
         rectangleB.setGraphic(rectangleIcon);
-        rectangleB.setOnAction(c->{
+        rectangleB.setOnAction(c -> {
             c.consume();
             selected.setSelected(false);
             rectangleB.setSelected(true);
@@ -223,13 +234,14 @@ public class draw extends help_bar{
 
         // Creates circle button
         final ToggleButton circleB = new ToggleButton();
+        circleB.setTooltip(new Tooltip("Circle"));
         File file4 = new File("C:\\Users\\kjbro\\Downloads\\circle_icon.png");
         Image circleImage = new Image(file4.toURI().toString());
         ImageView circleIcon = new ImageView(circleImage);
         circleIcon.setFitWidth(20);
         circleIcon.setFitHeight(20);
         circleB.setGraphic(circleIcon);
-        circleB.setOnAction(d->{
+        circleB.setOnAction(d -> {
             d.consume();
             selected.setSelected(false);
             circleB.setSelected(true);
@@ -240,13 +252,14 @@ public class draw extends help_bar{
 
         // Creates ellipse button
         final ToggleButton ellipseB = new ToggleButton();
+        ellipseB.setTooltip(new Tooltip("Ellipse"));
         File file5 = new File("C:\\Users\\kjbro\\Downloads\\ellipse_icon.png");
         Image ellipseImage = new Image(file5.toURI().toString());
         ImageView ellipseIcon = new ImageView(ellipseImage);
         ellipseIcon.setFitWidth(20);
         ellipseIcon.setFitHeight(20);
         ellipseB.setGraphic(ellipseIcon);
-        ellipseB.setOnAction(e->{
+        ellipseB.setOnAction(e -> {
             e.consume();
             selected.setSelected(false);
             ellipseB.setSelected(true);
@@ -257,13 +270,14 @@ public class draw extends help_bar{
 
         // Creates dashed line button
         final ToggleButton dashedB = new ToggleButton();
+        dashedB.setTooltip(new Tooltip("Dashed Line"));
         File file6 = new File("C:\\Users\\kjbro\\Downloads\\dashed_icon.png");
         Image dashedImage = new Image(file6.toURI().toString());
         ImageView dashedIcon = new ImageView(dashedImage);
         dashedIcon.setFitWidth(20);
         dashedIcon.setFitHeight(20);
         dashedB.setGraphic(dashedIcon);
-        dashedB.setOnAction(f->{
+        dashedB.setOnAction(f -> {
             f.consume();
             selected.setSelected(false);
             dashedB.setSelected(true);
@@ -274,13 +288,14 @@ public class draw extends help_bar{
 
         // Color grabber button
         final ToggleButton colorB = new ToggleButton();
+        colorB.setTooltip(new Tooltip("Click on a point in the canvas to get the color"));
         File file7 = new File("C:\\Users\\kjbro\\Downloads\\color_icon.png");
         Image colorImage = new Image(file7.toURI().toString());
         ImageView colorIcon = new ImageView(colorImage);
         colorIcon.setFitWidth(20);
         colorIcon.setFitHeight(20);
         colorB.setGraphic(colorIcon);
-        colorB.setOnAction(g->{
+        colorB.setOnAction(g -> {
             g.consume();
             selected.setSelected(false);
             colorB.setSelected(true);
@@ -291,13 +306,14 @@ public class draw extends help_bar{
 
         // Rounded rectangle button
         final ToggleButton roundedB = new ToggleButton();
+        roundedB.setTooltip(new Tooltip("Rounded Rectangle"));
         File file8 = new File("C:\\Users\\kjbro\\Downloads\\rounded_icon.png");
         Image roundedImage = new Image(file8.toURI().toString());
         ImageView roundedIcon = new ImageView(roundedImage);
         roundedIcon.setFitWidth(20);
         roundedIcon.setFitHeight(20);
         roundedB.setGraphic(roundedIcon);
-        roundedB.setOnAction(h->{
+        roundedB.setOnAction(h -> {
             h.consume();
             selected.setSelected(false);
             roundedB.setSelected(true);
@@ -308,13 +324,14 @@ public class draw extends help_bar{
 
         // Eraser button
         final ToggleButton eraserB = new ToggleButton();
+        eraserB.setTooltip(new Tooltip("Eraser"));
         File file9 = new File("C:\\Users\\kjbro\\Downloads\\eraser_icon.png");
         Image eraserImage = new Image(file9.toURI().toString());
         ImageView eraserIcon = new ImageView(eraserImage);
         eraserIcon.setFitWidth(20);
         eraserIcon.setFitHeight(20);
         eraserB.setGraphic(eraserIcon);
-        eraserB.setOnAction(i->{
+        eraserB.setOnAction(i -> {
             i.consume();
             selected.setSelected(false);
             eraserB.setSelected(true);
@@ -323,8 +340,15 @@ public class draw extends help_bar{
             eraser(canvas);
         });
 
-        final ToggleButton polygonB = new ToggleButton("Polygon");
-        polygonB.setOnAction(j->{
+        final ToggleButton polygonB = new ToggleButton();
+        polygonB.setTooltip(new Tooltip("Draws a polygon with desired number of sides"));
+        File file10 = new File("C:\\Users\\kjbro\\Downloads\\polygon_icon.jpg");
+        Image polygonImage = new Image(file10.toURI().toString());
+        ImageView polygonIcon = new ImageView(polygonImage);
+        polygonIcon.setFitWidth(20);
+        polygonIcon.setFitHeight(20);
+        polygonB.setGraphic(polygonIcon);
+        polygonB.setOnAction(j -> {
             j.consume();
             selected.setSelected(false);
             polygonB.setSelected(true);
@@ -334,21 +358,20 @@ public class draw extends help_bar{
         });
 
         final Button undoB = new Button("Undo");
-        undoB.setOnAction(k ->{
-            //k.consume();
+        undoB.setOnAction(k -> {
             undo();
         });
         undoB.setTranslateX(5);
 
         final Button redoB = new Button("Redo");
-        redoB.setOnAction(l ->{
-            //l.consume();
+        redoB.setOnAction(l -> {
             redo();
         });
         redoB.setTranslateX(5);
 
         final ToggleButton copyB = new ToggleButton("Copy part");
-        copyB.setOnAction(m ->{
+        copyB.setTooltip(new Tooltip("Copies and pastes a part of an image or drawing"));
+        copyB.setOnAction(m -> {
             m.consume();
             selected.setSelected(false);
             copyB.setSelected(true);
@@ -356,6 +379,30 @@ public class draw extends help_bar{
             in_use = "copyB";
             image_copy(undo.peek());
         });
+
+        final Button rotecanvB = new Button("Rotate Canvas");
+        rotecanvB.setTooltip(new Tooltip("Rotates an image/canvas with alterations"));
+        rotecanvB.setOnAction(o -> {
+            o.consume();
+            rotate_canvas(canvas);
+        });
+        rotecanvB.setTranslateX(10);
+
+        final Button mirror_image = new Button("Mirror Image");
+        mirror_image.setTooltip(new Tooltip("Flips the image horizontally and vertically"));
+        mirror_image.setOnAction(p -> {
+            p.consume();
+            mirror_image();
+        });
+        mirror_image.setTranslateX(10);
+
+        final Button rote_part_canvasB = new Button("Rotate Part of Canvas");
+        rote_part_canvasB.setTooltip(new Tooltip("Rotates a part of the canvas"));
+        rote_part_canvasB.setOnAction(q -> {
+            q.consume();
+            rotate_part_of_canvas();
+        });
+        rote_part_canvasB.setTranslateX(10);
 
         // Adds options to toolbar
         toolbar.getItems().addAll(freeB, lineB, squareB, rectangleB, roundedB, circleB, ellipseB, dashedB, eraserB, colorB, polygonB, copyB);
@@ -367,14 +414,42 @@ public class draw extends help_bar{
 
         // Creates menubar box
         button_box = new HBox(menubar);
-        button_box.getChildren().addAll(resetButton, undoB, redoB, colorPicker, sizeChooser, resize, toolbar);
+        button_box.getChildren().addAll(resetButton, undoB, redoB, colorPicker, sizeChooser, resize, toolbar, rotecanvB, rote_part_canvasB, mirror_image);
     }
 
-    public void set_line_width(int new_width){
+    public void mirror_image() {
+        // Mirrors image
+        GraphicsContext gc = get_canvas().getGraphicsContext2D();
+        // Mirrors the image
+        gc.drawImage(draw_image(get_canvas()), 0.0, 0.0, get_canvas().getWidth(), get_canvas().getHeight(), get_canvas().getWidth(), get_canvas().getHeight(), -get_canvas().getWidth(), -get_canvas().getHeight());
+        // Sets new mirrored image as default
+        set_image(draw_image(get_canvas()));
+    }
+
+
+    public void rotate_part_of_canvas() {
+        want_rotate = true;
+        image_copy(draw_image(get_canvas()));
+        want_rotate = false;
+    }
+
+    public void rotate_canvas(Canvas canvas) {
+        // Rotates canvas
+        get_canvas().setRotate(get_canvas().getRotate() + 90);
+        // Sets canvas
+        root = new StackPane();
+        scroll = new ScrollPane();
+        set_canvas(get_canvas());
+        scroll.setContent(get_canvas());
+        root.getChildren().add(scroll);
+        Main.get_pane().setCenter(root);
+    }
+
+    public void set_line_width(int new_width) {
         linewidth = new_width;
     }
 
-    public int get_line_width(){
+    public int get_line_width() {
         return linewidth;
     }
 
@@ -417,6 +492,9 @@ public class draw extends help_bar{
 
         Rectangle2D rectangle = new Rectangle2D(x1, y1, x2 - x1, y2 - y1);
         imageview1.setViewport(rectangle);
+        if (want_rotate){
+            imageview1.setRotate(imageview1.getRotate() + 90);
+        }
         paste_rect(imageview1, rectangle);
     }
 
@@ -426,8 +504,9 @@ public class draw extends help_bar{
         ScrollPane scrolls = new ScrollPane();
         Canvas canvas = get_canvas();
         doneyet = false;
-        if (!doneyet) {
+        if (get_in_use() == "copyB") {
             canvas.setOnMousePressed((MouseEvent event) -> {
+                System.out.println("Still rolling");
                 double x = event.getX();
                 double y = event.getY();
                 draw_image(image, canvas, x, y, rectangle);
@@ -966,6 +1045,7 @@ public class draw extends help_bar{
     }
 
     public void draw_square(Canvas canvas){
+        System.out.println(get_canvas());
         // Square function
         root = new StackPane();
         canvas = get_canvas();
