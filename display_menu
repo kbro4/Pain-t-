@@ -206,7 +206,6 @@ public class display_menu {
         // Loads image
         Image image = new Image(file1.toURI().toString());
         imageview = new ImageView(image);
-        Main.get_pane().setCenter(imageview);
 
         // Sets image
         set_image(image);
