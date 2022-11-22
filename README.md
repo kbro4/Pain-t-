@@ -2,7 +2,7 @@
 
 Use Case:
 
-![image](https://user-images.githubusercontent.com/103595125/203442522-f647c864-53a0-49d6-ac06-75530bf0cf9f.pn
+![image](https://user-images.githubusercontent.com/103595125/203442680-78f5d10f-003d-4214-9b64-7dce2f3766d5.png)
 
 State:
 
